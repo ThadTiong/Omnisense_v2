@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Import CSS -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='index.css') }}" />
+
+    <!-- Import Google Icons -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0" />
+
+    <!-- Import gradient.js -->
+    <script
+      type="module"
+      src="{{ 
+      url_for('static', filename='gradient.js') }}"></script>
+
+    <title>OmniSense</title>
+  </head>
+  <body>
+    <nav>
+      <div class="nav container">
+        <div class="omnisense-title">OmniSense</div>
+        <div>
+          <ul>
+            <li>
+              <a href="#home">Home</a>
+            </li>
+            <li>
+              <a href="#about">About</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    
+    <div id="loading-popup" class="loading-popup">
+      <div class="loading-spinner"></div>
+    </div>
+
+    <section id="home">
+      <div class="gradient-background">
+        <canvas id="gradient-canvas"></canvas>
+      </div>
+      <div class="glass-card">
+        <button id="settings-button">
+          Settings
+          <span id="settings-icon" class="material-symbols-outlined"> settings </span>
+        </button>
+
+        <!-- Settings Dialog -->
+        <dialog id="settings-dialog">
+          <div id="settings-dialog-wrapper" class="dialog-wrapper">
+            <h2>Settings</h2>
+            <div class="settings-group">
+              <h4 class="settings-group-header">Camera</h4>
+              <div class="settings-group-content">
+                <div class="settings-group-item">
+                  <span> Source: </span>
+                  <select id="camera-source">
+                    <!-- Camera list is dynamically loaded here by fetchCameraList function -->
+                  </select>
+                </div>
+              </div>
+            </div>
+            <hr />
+            <div class="settings-dialog-actions">
+              <button id="settings-cancel">Cancel</button>
+              <button id="settings-save">Save</button>
+            </div>
+          </div>
+        </dialog>
+        <!-- End of Settings Dialog -->
+        
+        <!-- TODO: Add loaders & message if src is unavailable -->
+        <div class="frames-container">
+          <img id="img1" src="{{ url_for('video_feed', mode='default' )}}" />
+          <img id="img2" src="{{ url_for('video_feed', mode='default' )}}" />
+        </div>
+        <div class="buttons-container">
+          <button
+            id="default"
+            class="active-mode"
+            onclick="changeMode('default')">
+            Default
+          </button>
+          <button id="force" onclick="changeMode('force')">Force</button>
+          <!-- <button id="heatmap" onclick="changeMode('heatmap')">Heatmap</button> -->
+          <button id="temperature" onclick="changeMode('temperature')">
+            Temperature
+          </button>
+          <button id="yolov8" onclick="changeMode('yolov7')">
+            Object Recognition
+          </button>
+          <button id="3drender" onclick="changeMode('3drender')">
+            3D Rendering
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="about">
+      <div>Section 2</div>
+    </section>
+    <div class="spacer waves3"></div>
+    <div class="spacer waves4"></div>
+
+    <!-- TODO: CHANGE SECTION ID -->
+    <section id="another-section">
+      <div>Section 3</div>
+    </section>
+
+    <!-- !Must have no HTML beyond this -->
+
+    <!-- ES6 module script -->
+    <!-- Import gradient.js -->
+    <script type="module">
+      import { Gradient } from '../static/gradient.js';
+
+      // Create instance
+      const gradient = new Gradient();
+
+      // Call `initGradient` with the selector from canvas id
+      gradient.initGradient('#gradient-canvas');
+    </script>
+    
+    <script>
+      function showLoadingPopup() {
+        document.getElementById('loading-popup').style.display = 'block';
+      }
+      
+      function hideLoadingPopup() {
+        document.getElementById('loading-popup').style.display = 'none';
+      }
+    </script>
+
+    <!-- Inline script for functionality -->
+    <script>
+      // Note: Script is within the HTML file
+      // since it would need configuration from flask
+      // to access methods such as 'url_for'
+      // if it were in a separate file
+
+      let cameraId = 0;
+
+      window.onload = function () {
+        const settingsButton = document.getElementById('settings-button');
+        const settingsDialog = document.getElementById('settings-dialog');
+        const settingsDialogWrapper = document.getElementById(
+          'settings-dialog-wrapper'
+        );
+        const cancelButton = document.getElementById('settings-cancel');
+        const saveButton = document.getElementById('settings-save');
+
+        settingsButton.addEventListener('click', () => {
+          settingsDialog.showModal();
+          // scroll to top
+          window.scrollTo(0, 0);
+          // prevent scrolling
+          document.body.style.overflow = 'hidden';
+        });
+
+        settingsDialog.addEventListener('click', (event) => {
+          settingsDialog.close();
+          // enable scrolling
+          document.body.style.overflow = 'auto';
+        });
+
+        cancelButton.addEventListener('click', () => {
+          settingsDialog.close();
+          // enable scrolling
+          document.body.style.overflow = 'auto';
+        });
+
+        settingsDialogWrapper.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+
+        saveButton.addEventListener('click', async () => {
+          await changeCamera();
+
+          settingsDialog.close();
+          // enable scrolling
+          document.body.style.overflow = 'auto';
+        });
+
+        // Fetch camera list
+        const cameraSelector = document.getElementById('camera-source');
+        const cameraListUrl = '{{ url_for("camera_list") }}';
+
+        fetch(cameraListUrl)
+          .then((response) => response.json())
+          .then((data) => {
+            console.log('data', data);
+            data.forEach((camera) => {
+              const option = document.createElement('option');
+              option.value = camera.id;
+              option.text = camera.name;
+              cameraSelector.appendChild(option);
+            });
+          })
+          .catch((error) => {
+            console.error('Error:', error);
+          });
+      };
+
+      function changeMode(mode) {
+        const image2 = document.getElementById('img2');
+        image2.src = `{{ url_for('video_feed', mode='') }}/${mode}`;
+    
+        // Remove active mode from all buttons and enable them
+        const buttons = document.querySelectorAll('.buttons-container button');
+        buttons.forEach((button) => {
+            button.classList.remove('active-mode');
+            button.disabled = false; // Enable all buttons
+        });
+    
+        // Add active mode to the pressed button and disable it
+        const pressedButton = document.getElementById(mode);
+        if (pressedButton && !pressedButton.classList.contains('active-mode')) {
+            pressedButton.classList.add('active-mode');
+            pressedButton.disabled = true; // Disable the pressed button
+        }
+    
+        // Show popup notice
+        showPopupNotice(`Switched to ${mode} mode`);
+      }
+
+      function showPopupNotice(message) {
+        const popupNotice = document.createElement('div');
+        popupNotice.classList.add('popup-notice');
+        popupNotice.textContent = message;
+        document.body.appendChild(popupNotice);
+      
+        // Remove the popup after some time (e.g., 3 seconds)
+        setTimeout(() => {
+          popupNotice.remove();
+        }, 3000);
+      }
+
+      function changeCamera() {
+        const cameraSelector = document.getElementById('camera-source');
+        const selectedCameraId = cameraSelector.value || 0;
+        if (selectedCameraId == cameraId) {
+          showPopupNotice(`You've selected the same camera.`);
+          return;
+        }
+
+        cameraId = selectedCameraId;
+
+        const image1 = document.getElementById('img1');
+        const image2 = document.getElementById('img2');
+
+        showLoadingPopup();
+        const switchCameraUrl =
+          `{{ url_for('switch_camera', camera_id=0) }}`.replace(
+            '0',
+            selectedCameraId
+          );
+
+        // TODO: Add error handling if camera is not available
+        fetch(switchCameraUrl)
+          .then((response) => {
+            if (!response.ok) {
+              // Revert to default camera
+              cameraId = 0;
+              cameraSelector.value = 0;
+              showPopupNotice(`Error accessing camera. Restoring default settings.`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log('data', data);
+            image1.src = `{{ url_for('video_feed', mode='') }}/${'default'}`;
+            image2.src = `{{ url_for('video_feed', mode='') }}/${'default'}`;
+            showPopupNotice(`Switched to camera ${cameraSelector.options[cameraSelector.selectedIndex].text}.`);
+            hideLoadingPopup();
+          })
+          .catch((error) => {
+            console.error('Error:', error);
+            hideLoadingPopup();
+          });
+      }
+    </script>
+  </body>
+</html>
