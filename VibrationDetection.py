@@ -73,7 +73,7 @@ def calculate_hz(pulse_count, start_time):
 
 if __name__ == "__main__":
     # Test code
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
     # Capture the initial frame
     ret, initial_frame = cap.read()
